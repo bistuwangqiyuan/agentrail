@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 /**
- * 10-round test→fix verification loop for fully autonomous agent pay/collect.
+ * 10-round test→fix verification for fully autonomous on-chain/local USDC pay/collect.
  * Usage: node scripts/autonomy-10rounds.mjs [baseUrl]
- *
- * Exit 0 only if all 10 rounds pass every assertion.
  */
 const base = (process.argv[2] || "http://127.0.0.1:3000").replace(/\/$/, "");
 const ROUNDS = 10;
@@ -31,18 +29,24 @@ function assert(cond, msg, detail) {
   }
 }
 
+async function verifyTx(hash) {
+  assert(hash && typeof hash === "string" && hash.startsWith("0x") && hash.length >= 66, "tx_hash shape", hash);
+  const r = await api("GET", `/api/v1/chain/tx/${hash}`);
+  assert(r.status === 200 && r.data?.tx?.status === "success", "tx verify", r.data);
+  return r.data;
+}
+
 async function round(n) {
   const tag = `R${n}`;
   const checks = [];
 
-  // A) Machine discovery
   {
     const r = await api("GET", "/api/v1/openapi");
     assert(r.status === 200 && r.data?.["x-agent-complete"] === true, `${tag} openapi`);
+    assert(r.data?.["x-settlement"], `${tag} x-settlement`);
     checks.push("openapi");
   }
 
-  // B) One-shot cycle (pay + collect)
   {
     const r = await api("POST", "/api/v1/agent/cycle", {
       body: {
@@ -56,12 +60,15 @@ async function round(n) {
     assert(r.data.human_clicks === 0, `${tag} cycle human_clicks`);
     assert(r.data.failover_swap_used === true, `${tag} cycle swap`);
     assert(r.data.data?.secret === `s-${n}`, `${tag} cycle payload`);
+    assert(r.data.seller?.address?.startsWith("0x"), `${tag} seller address`);
+    assert(r.data.buyer?.address?.startsWith("0x"), `${tag} buyer address`);
     assert(r.data.after.seller.USDC > r.data.before.seller.USDC, `${tag} seller credited`);
-    checks.push("cycle");
+    await verifyTx(r.data.receipt.tx_hash);
+    checks.push("cycle_onchain");
   }
 
-  // C) Multi-step with portable wallet_state (simulates cold start)
   let sellerKey, sellerId, sellerState, buyerKey, buyerState, resourceId, resourceToken, receiptId;
+
   {
     const sp = await api("POST", "/api/v1/principals", {
       body: { name: `seller-p-${n}-${Date.now()}` },
@@ -77,7 +84,7 @@ async function round(n) {
         daily_cap_usd: 500,
       },
     });
-    assert(sa.data?.api_key && sa.data?.wallet_state, `${tag} seller provision`, sa.data);
+    assert(sa.data?.api_key && sa.data?.wallet_state && sa.data?.address, `${tag} seller provision`, sa.data);
     sellerKey = sa.data.api_key;
     sellerId = sa.data.agent_id;
     sellerState = sa.data.wallet_state;
@@ -92,6 +99,7 @@ async function round(n) {
       },
     });
     assert(listed.data?.resource?.id && listed.data?.resource_token, `${tag} list`, listed.data);
+    assert(listed.data.resource.pay_to?.startsWith("0x"), `${tag} pay_to`);
     resourceId = listed.data.resource.id;
     resourceToken = listed.data.resource_token;
     sellerState = listed.data.wallet_state || sellerState;
@@ -110,15 +118,17 @@ async function round(n) {
         per_tx_cap_usd: 10,
       },
     });
-    assert(ba.data?.api_key && ba.data?.wallet_state, `${tag} buyer provision`, ba.data);
+    assert(ba.data?.api_key && ba.data?.wallet_state && ba.data?.address, `${tag} buyer provision`, ba.data);
     buyerKey = ba.data.api_key;
     buyerState = ba.data.wallet_state;
     checks.push("buyer_provision");
   }
 
-  // 402 then pay using ONLY wallet_state + resource_token (no reliance on prior memory)
   {
-    const challenge = await api("GET", `/api/v1/resources/${resourceId}?resource_token=${encodeURIComponent(resourceToken)}`);
+    const challenge = await api(
+      "GET",
+      `/api/v1/resources/${resourceId}?resource_token=${encodeURIComponent(resourceToken)}`,
+    );
     assert(challenge.status === 402, `${tag} 402`, challenge.data);
 
     const pay = await api("POST", "/api/v1/pay", {
@@ -133,12 +143,12 @@ async function round(n) {
     assert(pay.status === 200 && pay.data?.ok, `${tag} pay`, pay.data);
     assert(pay.data.receipt?.swap, `${tag} pay swap used`);
     assert(pay.data.data?.multi === n, `${tag} pay payload`);
+    await verifyTx(pay.data.receipt.tx_hash);
     receiptId = pay.data.receipt.receipt_id;
     buyerState = pay.data.wallet_state;
-    checks.push("pay_with_portable_state");
+    checks.push("pay_verify_tx");
   }
 
-  // Deliver with receipt id
   {
     const got = await api("GET", `/api/v1/resources/${resourceId}`, {
       key: buyerKey,
@@ -149,7 +159,6 @@ async function round(n) {
     checks.push("deliver");
   }
 
-  // X-PAYMENT auto
   {
     const listed = await api("POST", "/api/v1/resources", {
       key: sellerKey,
@@ -160,43 +169,46 @@ async function round(n) {
     const rtoken = listed.data.resource_token;
     sellerState = listed.data.wallet_state || sellerState;
 
-    const auto = await api("GET", `/api/v1/resources/${rid}?resource_token=${encodeURIComponent(rtoken)}`, {
-      key: buyerKey,
-      walletState: buyerState,
-      headers: { "X-PAYMENT": "auto", "X-Intent-Id": `auto-${n}-${Date.now()}` },
-    });
+    const auto = await api(
+      "GET",
+      `/api/v1/resources/${rid}?resource_token=${encodeURIComponent(rtoken)}`,
+      {
+        key: buyerKey,
+        walletState: buyerState,
+        headers: { "X-PAYMENT": "auto", "X-Intent-Id": `auto-${n}-${Date.now()}` },
+      },
+    );
     assert(auto.status === 200 && auto.data?.data?.auto === n, `${tag} x-payment-auto`, auto.data);
+    await verifyTx(auto.data.receipt.tx_hash);
     buyerState = auto.data.wallet_state || buyerState;
     checks.push("x_payment_auto");
   }
 
-  // Top-up without human
   {
     const top = await api("PUT", "/api/v1/agents", {
       key: buyerKey,
       walletState: buyerState,
-      body: { action: "topup", fund_usdt: 1 },
+      body: { action: "topup", fund_usdc: 0.05 },
     });
-    assert(top.status === 200 && top.data?.ok, `${tag} topup`, top.data);
+    assert(top.status === 200 && top.data?.ok && top.data?.tx_hash, `${tag} faucet topup`, top.data);
+    await verifyTx(top.data.tx_hash);
     buyerState = top.data.wallet_state;
-    checks.push("topup");
+    checks.push("faucet_topup");
   }
 
-  // Seller verifies credits
   {
     const led = await api("GET", `/api/v1/ledger?agent_id=${encodeURIComponent(sellerId)}`);
     const credits = (led.data?.ledger || []).filter((e) => e.type === "credit");
     assert(led.status === 200 && credits.length >= 1, `${tag} seller credits`, {
       credits: credits.length,
-      ledger: led.data,
     });
     checks.push("seller_credits");
   }
 
-  // Demo e2e
   {
     const demo = await api("POST", "/api/v1/demo/e2e", { body: { reset: true } });
     assert(demo.status === 200 && demo.data?.ok && demo.data.human_clicks === 0, `${tag} demo`, demo.data);
+    await verifyTx(demo.data.receipt.tx_hash);
     checks.push("demo");
   }
 
@@ -204,7 +216,7 @@ async function round(n) {
 }
 
 async function main() {
-  console.log(`\n=== 10-round autonomy loop @ ${base} ===\n`);
+  console.log(`\n=== 10-round chain autonomy loop @ ${base} ===\n`);
   const summary = [];
   for (let i = 1; i <= ROUNDS; i++) {
     try {

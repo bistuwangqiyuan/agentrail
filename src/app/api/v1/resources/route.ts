@@ -21,6 +21,7 @@ export async function GET() {
       asset: r.asset,
       network: r.network,
       seller_agent_id: r.seller_agent_id,
+      pay_to: r.pay_to,
       url: `/api/v1/resources/${r.id}`,
       resource_token: sealResource(r),
     })),
@@ -42,10 +43,10 @@ export async function POST(req: Request) {
     price_usd: Number(body.price_usd ?? 0.1),
     asset: (body.asset as Asset) || "USDC",
     network: (body.network as Network) || "base-sepolia",
+    pay_to: seller.address,
     payload: body.payload ?? { ok: true },
   };
   store.resources.set(id, resource);
-  // Ensure seller wallet present for settlement credit
   store.wallets.set(seller.id, seller);
   store.apiKeys.set(seller.api_key, seller.id);
   await persistDurable(store);
@@ -55,6 +56,6 @@ export async function POST(req: Request) {
     url: `/api/v1/resources/${id}`,
     resource_token: sealResource(resource),
     wallet_state: sealWallet(seller),
-    note: "Buyers may pay with resource_token even across cold starts.",
+    note: "pay_to is seller on-chain address. Buyers may pay with resource_token across cold starts.",
   });
 }

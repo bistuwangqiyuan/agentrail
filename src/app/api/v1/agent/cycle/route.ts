@@ -4,17 +4,15 @@ import { persistDurable } from "@/lib/durable";
 import { ensureDurableLoaded } from "@/lib/agent-context";
 import { settlePayment } from "@/lib/settlement";
 import { getStore, newId } from "@/lib/store";
+import { createAgentKey } from "@/lib/chain/keys";
+import { fundUsdc, getUsdcBalance } from "@/lib/chain";
 import type { Asset, WalletPolicy } from "@/lib/types";
+import type { Address } from "viem";
 
 export function OPTIONS() {
   return options();
 }
 
-/**
- * Single-call autonomous cycle for agents:
- * provision seller + buyer → list resource → pay (with swap if needed) → return payload + credits
- * Zero human steps. Prefer this when cold-start risk exists.
- */
 export async function POST(req: Request) {
   await ensureDurableLoaded();
   const body = await req.json().catch(() => ({}));
@@ -44,17 +42,31 @@ export async function POST(req: Request) {
     ...over,
   });
 
-  const sellerKey = `ar_${newId("key")}`;
-  const buyerKey = `ar_${newId("key")}`;
   const sellerId = newId("agent");
   const buyerId = newId("agent");
+  const sellerKey = `ar_${newId("key")}`;
+  const buyerKey = `ar_${newId("key")}`;
+  const sellerChain = createAgentKey(sellerId);
+  const buyerChain = createAgentKey(buyerId);
+
+  await fundUsdc(sellerChain.address, 1);
+  // Buyer starts USDT-heavy to force failover swap → on-chain USDC fund then pay
+  const buyerUsdt = Number(body.buyer_usdt ?? 15);
+  const buyerUsdcInit = Number(body.buyer_usdc ?? 0);
+  if (buyerUsdcInit > 0) await fundUsdc(buyerChain.address, buyerUsdcInit);
 
   const seller = {
     id: sellerId,
     principal_id: sellerPrin.id,
     api_key: sellerKey,
     label: "cycle-seller",
-    balances: { USDC: 1, USDT: 0, EURC: 0 },
+    address: sellerChain.address as `0x${string}`,
+    key_id: sellerChain.keyId,
+    balances: {
+      USDC: await getUsdcBalance(sellerChain.address),
+      USDT: 0,
+      EURC: 0,
+    },
     policy: policy(),
     spent_today_usd: 0,
     created_at: new Date().toISOString(),
@@ -64,9 +76,11 @@ export async function POST(req: Request) {
     principal_id: buyerPrin.id,
     api_key: buyerKey,
     label: "cycle-buyer",
+    address: buyerChain.address as `0x${string}`,
+    key_id: buyerChain.keyId,
     balances: {
-      USDC: Number(body.buyer_usdc ?? 0),
-      USDT: Number(body.buyer_usdt ?? 15),
+      USDC: await getUsdcBalance(buyerChain.address as Address),
+      USDT: buyerUsdt,
       EURC: 0,
     },
     policy: policy({ max_slippage_bps: 250 }),
@@ -88,6 +102,7 @@ export async function POST(req: Request) {
     price_usd: price,
     asset: "USDC" as Asset,
     network: "base-sepolia" as const,
+    pay_to: seller.address,
     payload: body.payload ?? { cycle: true, at: Date.now() },
   };
   store.resources.set(resource.id, resource);
@@ -97,7 +112,7 @@ export async function POST(req: Request) {
     seller: { ...seller.balances },
   };
 
-  const result = settlePayment({
+  const result = await settlePayment({
     buyer,
     resourceId: resource.id,
     intentId: body.intent_id ? String(body.intent_id) : newId("intent"),
@@ -115,15 +130,18 @@ export async function POST(req: Request) {
     ok: true,
     human_clicks: 0,
     failover_swap_used: Boolean(result.receipt.swap),
+    settlement_mode: result.receipt.settlement_mode,
     seller: {
       agent_id: sellerId,
       api_key: sellerKey,
+      address: afterSeller.address,
       wallet_state: sealWallet(afterSeller),
       balances: afterSeller.balances,
     },
     buyer: {
       agent_id: buyerId,
       api_key: buyerKey,
+      address: afterBuyer.address,
       wallet_state: sealWallet(afterBuyer),
       balances: afterBuyer.balances,
     },
@@ -145,6 +163,6 @@ export async function POST(req: Request) {
 export async function GET() {
   return json({
     endpoint: "POST /api/v1/agent/cycle",
-    description: "Fully autonomous provision→list→pay→deliver→credit in one machine call",
+    description: "Fully autonomous provision→list→pay→deliver→credit with on-chain/local USDC",
   });
 }

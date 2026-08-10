@@ -2,16 +2,20 @@ import { json, options } from "@/lib/http";
 import { sealReceipt, sealWallet } from "@/lib/crypto-state";
 import { persistDurable } from "@/lib/durable";
 import { settlePayment } from "@/lib/settlement";
-import { getStore, getWalletByApiKey, resetStore } from "@/lib/store";
+import { fundSeedWallets, getStore, getWalletByApiKey, resetStore } from "@/lib/store";
 
 export function OPTIONS() {
   return options();
 }
 
-/** One-shot end-to-end demo: Agent A pays Agent B with failover swap, zero human clicks */
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
-  if (body.reset) resetStore();
+  if (body.reset) {
+    resetStore();
+    await fundSeedWallets();
+  } else {
+    await fundSeedWallets();
+  }
 
   const store = getStore();
   const buyer = getWalletByApiKey("ar_buyer_demo_key_0001");
@@ -27,7 +31,7 @@ export async function POST(req: Request) {
     seller: { ...seller.balances },
   };
 
-  const result = settlePayment({
+  const result = await settlePayment({
     buyer,
     resourceId: resource.id,
     intentId: body.intent_id,
@@ -42,7 +46,7 @@ export async function POST(req: Request) {
 
   return json({
     ok: true,
-    demo: "Agent A → paid → Agent B resource, autonomous failover if needed",
+    demo: "Agent A → on-chain/local USDC → Agent B, autonomous failover if needed",
     human_clicks: 0,
     before,
     after: {
@@ -55,6 +59,7 @@ export async function POST(req: Request) {
     data: result.payload,
     x402_compatible: true,
     failover_swap_used: Boolean(result.receipt.swap),
+    settlement_mode: result.receipt.settlement_mode,
   });
 }
 
@@ -62,6 +67,6 @@ export async function GET() {
   return json({
     endpoint: "POST /api/v1/demo/e2e",
     body: { reset: true },
-    description: "Runs full unpaid→402-pattern→swap-if-needed→settle→deliver flow",
+    description: "Runs full unpaid→402→swap-if-needed→on-chain settle→deliver flow",
   });
 }

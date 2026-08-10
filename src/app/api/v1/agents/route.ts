@@ -3,7 +3,10 @@ import { sealWallet } from "@/lib/crypto-state";
 import { persistDurable } from "@/lib/durable";
 import { ensureDurableLoaded, publicWalletView, resolveBuyer } from "@/lib/agent-context";
 import { getStore, newId } from "@/lib/store";
+import { createAgentKey } from "@/lib/chain/keys";
+import { fundUsdc, getUsdcBalance } from "@/lib/chain";
 import type { Asset, WalletPolicy } from "@/lib/types";
+import type { Address } from "viem";
 
 export function OPTIONS() {
   return options();
@@ -12,8 +15,17 @@ export function OPTIONS() {
 export async function GET(req: Request) {
   const me = await resolveBuyer(req);
   if (!me) return json({ error: "UNAUTHORIZED" }, 401);
+  try {
+    me.balances.USDC = await getUsdcBalance(me.address as Address);
+  } catch {
+    // keep cache
+  }
   return json({
-    agent: publicWalletView(me),
+    agent: {
+      ...publicWalletView(me),
+      address: me.address,
+      key_id: me.key_id,
+    },
     wallet_state: sealWallet(me),
   });
 }
@@ -26,7 +38,6 @@ export async function POST(req: Request) {
   const principalId = String(body.principal_id || "prin_demo");
   let principal = store.principals.get(principalId);
 
-  // Allow agent to auto-create principal inline (still KYA-bound, no human form)
   if (!principal && body.auto_principal) {
     principal = {
       id: principalId.startsWith("prin_") ? principalId : newId("prin"),
@@ -58,15 +69,28 @@ export async function POST(req: Request) {
 
   const apiKey = `ar_${newId("key")}`;
   const id = newId("agent");
+  const { address, keyId } = createAgentKey(id);
+
+  const fundUsdcAmt = Number(body.fund_usdc ?? 5);
+  const fundUsdtAmt = Number(body.fund_usdt ?? 0);
+  const fundEurcAmt = Number(body.fund_eurc ?? 0);
+
+  // On-chain/local fund USDC via faucet pool (not fictional balance)
+  if (fundUsdcAmt > 0) {
+    await fundUsdc(address, fundUsdcAmt);
+  }
+
   const wallet = {
     id,
     principal_id: principal.id,
     api_key: apiKey,
     label: String(body.label || "agent"),
+    address: address as `0x${string}`,
+    key_id: keyId,
     balances: {
-      USDC: Number(body.fund_usdc ?? 5),
-      USDT: Number(body.fund_usdt ?? 0),
-      EURC: Number(body.fund_eurc ?? 0),
+      USDC: fundUsdcAmt > 0 ? await getUsdcBalance(address) : 0,
+      USDT: fundUsdtAmt,
+      EURC: fundEurcAmt,
     },
     policy,
     spent_today_usd: 0,
@@ -81,14 +105,14 @@ export async function POST(req: Request) {
     agent_id: id,
     api_key: apiKey,
     principal_id: principal.id,
+    address: wallet.address,
     balances: wallet.balances,
     policy: wallet.policy,
     wallet_state: sealWallet(wallet),
-    note: "Carry X-Wallet-State on later calls for cold-start autonomy. No human login.",
+    note: "On-chain wallet created. Carry X-Wallet-State. No human login / browser wallet.",
   });
 }
 
-/** Agent self-service top-up / policy update via same path with method override body.action */
 export async function PUT(req: Request) {
   const me = await resolveBuyer(req);
   if (!me) return json({ error: "UNAUTHORIZED" }, 401);
@@ -98,15 +122,27 @@ export async function PUT(req: Request) {
   if (!wallet) return json({ error: "NOT_FOUND" }, 404);
 
   if (body.action === "topup") {
-    wallet.balances.USDC = Number(
-      (wallet.balances.USDC + Number(body.fund_usdc || 0)).toFixed(6),
-    );
-    wallet.balances.USDT = Number(
-      (wallet.balances.USDT + Number(body.fund_usdt || 0)).toFixed(6),
-    );
-    wallet.balances.EURC = Number(
-      (wallet.balances.EURC + Number(body.fund_eurc || 0)).toFixed(6),
-    );
+    const usdc = Number(body.fund_usdc || 0);
+    const usdt = Number(body.fund_usdt || 0);
+    const eurc = Number(body.fund_eurc || 0);
+    if (usdc > 0) {
+      const tx = await fundUsdc(wallet.address as Address, usdc);
+      wallet.balances.USDC = await getUsdcBalance(wallet.address as Address);
+      await persistDurable(store);
+      return json({
+        ok: true,
+        action: "topup",
+        tx_hash: tx.hash,
+        explorer_url: tx.mode === "base-sepolia"
+          ? `https://sepolia.basescan.org/tx/${tx.hash}`
+          : `/api/v1/chain/tx/${tx.hash}`,
+        agent: { ...publicWalletView(wallet), address: wallet.address },
+        wallet_state: sealWallet(wallet),
+      });
+    }
+    // Off-chain credit assets (USDT/EURC) for failover demos when no testnet liquidity
+    wallet.balances.USDT = Number((wallet.balances.USDT + usdt).toFixed(6));
+    wallet.balances.EURC = Number((wallet.balances.EURC + eurc).toFixed(6));
   } else if (body.action === "policy") {
     wallet.policy = {
       ...wallet.policy,
@@ -125,7 +161,7 @@ export async function PUT(req: Request) {
   await persistDurable(store);
   return json({
     ok: true,
-    agent: publicWalletView(wallet),
+    agent: { ...publicWalletView(wallet), address: wallet.address },
     wallet_state: sealWallet(wallet),
   });
 }

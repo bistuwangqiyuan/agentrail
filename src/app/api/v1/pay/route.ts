@@ -4,6 +4,7 @@ import { hydrateResource, persistDurable } from "@/lib/durable";
 import { resolveBuyer } from "@/lib/agent-context";
 import { settlePayment } from "@/lib/settlement";
 import { getStore } from "@/lib/store";
+import { createAgentKey } from "@/lib/chain/keys";
 import type { PaidResource } from "@/lib/types";
 
 export function OPTIONS() {
@@ -12,12 +13,18 @@ export function OPTIONS() {
 
 function ensureSellerStub(sellerId: string) {
   const store = getStore();
-  if (store.wallets.has(sellerId)) return;
+  if (store.wallets.has(sellerId)) {
+    const w = store.wallets.get(sellerId)!;
+    if (w.address) return;
+  }
+  const { address, keyId } = createAgentKey(sellerId);
   store.wallets.set(sellerId, {
     id: sellerId,
     principal_id: "prin_external",
     api_key: `stub_${sellerId}`,
     label: "external-seller",
+    address: address as `0x${string}`,
+    key_id: keyId,
     balances: { USDC: 0, USDT: 0, EURC: 0 },
     policy: {
       daily_cap_usd: 1e9,
@@ -45,7 +52,6 @@ function resolveResource(body: Record<string, unknown>): PaidResource | null {
   return null;
 }
 
-/** Agent-native pay endpoint — no human UI required */
 export async function POST(req: Request) {
   const buyer = await resolveBuyer(req);
   if (!buyer) {
@@ -62,7 +68,7 @@ export async function POST(req: Request) {
   ensureSellerStub(resource.seller_agent_id);
 
   const store = getStore();
-  const result = settlePayment({
+  const result = await settlePayment({
     buyer,
     resourceId: resource.id,
     intentId: body.intent_id ? String(body.intent_id) : undefined,
@@ -92,5 +98,6 @@ export async function POST(req: Request) {
     data: result.payload,
     wallet_state: sealWallet(freshBuyer),
     seller_balances: freshSeller?.balances,
+    seller_address: freshSeller?.address,
   });
 }
