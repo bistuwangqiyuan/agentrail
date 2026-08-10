@@ -8,6 +8,10 @@ import type {
   Quote,
   SettlementReceipt,
 } from "./types";
+import { ensureDemoKeys } from "./chain/keys";
+import { fundUsdc } from "./chain";
+import { resetLocalChain } from "./chain/local";
+import type { Address } from "viem";
 
 export type Store = {
   principals: Map<string, Principal>;
@@ -24,7 +28,33 @@ declare global {
   var __agentrail_store: Store | undefined;
 }
 
+function makeWallet(input: {
+  id: string;
+  principal_id: string;
+  api_key: string;
+  label: string;
+  policy: AgentWallet["policy"];
+  usdt?: number;
+  eurc?: number;
+}): AgentWallet {
+  const keyId = `key_${input.id}`;
+  const { address } = ensureDemoKeys(input.id, keyId);
+  return {
+    id: input.id,
+    principal_id: input.principal_id,
+    api_key: input.api_key,
+    label: input.label,
+    address: address as `0x${string}`,
+    key_id: keyId,
+    balances: { USDC: 0, USDT: input.usdt ?? 0, EURC: input.eurc ?? 0 },
+    policy: input.policy,
+    spent_today_usd: 0,
+    created_at: new Date().toISOString(),
+  };
+}
+
 function seedStore(): Store {
+  resetLocalChain();
   const store: Store = {
     principals: new Map(),
     wallets: new Map(),
@@ -47,12 +77,11 @@ function seedStore(): Store {
   const sellerKey = "ar_seller_demo_key_0001";
   const buyerKey = "ar_buyer_demo_key_0001";
 
-  const seller: AgentWallet = {
+  const seller = makeWallet({
     id: "agent_seller_demo",
     principal_id: principal.id,
     api_key: sellerKey,
     label: "Seller Agent B",
-    balances: { USDC: 10, USDT: 0, EURC: 0 },
     policy: {
       daily_cap_usd: 1000,
       per_tx_cap_usd: 100,
@@ -60,17 +89,14 @@ function seedStore(): Store {
       max_slippage_bps: 150,
       assets: ["USDC", "USDT", "EURC"],
     },
-    spent_today_usd: 0,
-    created_at: new Date().toISOString(),
-  };
+  });
 
-  const buyer: AgentWallet = {
+  const buyer = makeWallet({
     id: "agent_buyer_demo",
     principal_id: principal.id,
     api_key: buyerKey,
     label: "Buyer Agent A",
-    // Intentionally holds USDT so failover swap path can be demonstrated
-    balances: { USDC: 0.05, USDT: 25, EURC: 0 },
+    usdt: 25,
     policy: {
       daily_cap_usd: 50,
       per_tx_cap_usd: 5,
@@ -78,16 +104,15 @@ function seedStore(): Store {
       max_slippage_bps: 150,
       assets: ["USDC", "USDT", "EURC"],
     },
-    spent_today_usd: 0,
-    created_at: new Date().toISOString(),
-  };
+  });
 
   store.wallets.set(seller.id, seller);
   store.wallets.set(buyer.id, buyer);
   store.apiKeys.set(sellerKey, seller.id);
   store.apiKeys.set(buyerKey, buyer.id);
 
-  const resource: PaidResource = {
+  // Async fund not available in sync seed — mark pending; demo/e2e will fund
+  store.resources.set("res_market_alpha", {
     id: "res_market_alpha",
     seller_agent_id: seller.id,
     title: "Market Alpha Signal",
@@ -95,16 +120,32 @@ function seedStore(): Store {
     price_usd: 0.25,
     asset: "USDC",
     network: "base-sepolia",
+    pay_to: seller.address,
     payload: {
       signal: "neutral-bullish",
       confidence: 0.72,
       as_of: new Date().toISOString(),
       note: "Synthetic demo payload — not financial advice",
     },
-  };
-  store.resources.set(resource.id, resource);
+  });
 
   return store;
+}
+
+/** Fund seeded demo wallets on-chain/local after reset */
+export async function fundSeedWallets(): Promise<void> {
+  const store = getStore();
+  const seller = store.wallets.get("agent_seller_demo");
+  const buyer = store.wallets.get("agent_buyer_demo");
+  if (seller) {
+    await fundUsdc(seller.address as Address, 10);
+    seller.balances.USDC = 10;
+  }
+  if (buyer) {
+    await fundUsdc(buyer.address as Address, 0.05);
+    buyer.balances.USDC = 0.05;
+    buyer.balances.USDT = 25;
+  }
 }
 
 export function getStore(): Store {

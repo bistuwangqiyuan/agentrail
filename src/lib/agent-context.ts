@@ -2,6 +2,7 @@ import { getApiKey } from "./http";
 import { openWallet, openResource, openReceipt } from "./crypto-state";
 import { hydrateWallet, hydrateResource, hydrateReceipt, loadDurableIntoMemory } from "./durable";
 import { getStore, getWalletByApiKey } from "./store";
+import { rehydrateKeyForWallet } from "./chain/keys";
 import type { AgentWallet, PaidResource } from "./types";
 
 let durableLoaded = false;
@@ -19,9 +20,12 @@ export async function resolveBuyer(req: Request): Promise<AgentWallet | null> {
   const fromHeader = openWallet(stateHeader);
   if (fromHeader && (!key || fromHeader.api_key === key)) {
     hydrateWallet(fromHeader);
+    rehydrateKeyForWallet(fromHeader);
     return fromHeader;
   }
-  return getWalletByApiKey(key);
+  const fromKey = getWalletByApiKey(key);
+  if (fromKey) rehydrateKeyForWallet(fromKey);
+  return fromKey;
 }
 
 export async function resolveSeller(req: Request): Promise<AgentWallet | null> {
@@ -55,6 +59,7 @@ export function publicWalletView(wallet: AgentWallet) {
     id: wallet.id,
     label: wallet.label,
     principal_id: wallet.principal_id,
+    address: wallet.address,
     balances: wallet.balances,
     policy: wallet.policy,
     spent_today_usd: wallet.spent_today_usd,

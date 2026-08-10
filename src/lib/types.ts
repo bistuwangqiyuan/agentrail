@@ -29,6 +29,11 @@ export type AgentWallet = {
   principal_id: string;
   api_key: string;
   label: string;
+  /** On-chain EOA address (Base Sepolia / local EVM) */
+  address: `0x${string}`;
+  /** Server-side key handle — private key never returned to clients */
+  key_id: string;
+  /** Cached balances; USDC refreshed from chain when possible */
   balances: Record<Asset, number>;
   policy: WalletPolicy;
   spent_today_usd: number;
@@ -69,6 +74,8 @@ export type SwapQuote = {
   slippage_bps: number;
   route: string[];
   fee_usd: number;
+  executable: boolean;
+  venue: "funding-pool" | "uniswap-v3" | "local-pool";
 };
 
 export type SettlementReceipt = {
@@ -83,8 +90,10 @@ export type SettlementReceipt = {
   fee_breakdown: FeeBreakdown;
   swap?: SwapQuote | null;
   tx_hash: string;
+  explorer_url?: string;
   settled_at: string;
   reason?: string;
+  settlement_mode?: "local" | "base-sepolia";
 };
 
 export type LedgerEntry = {
@@ -106,4 +115,6 @@ export type PaidResource = {
   asset: Asset;
   network: Network;
   payload: unknown;
+  /** Seller on-chain payout address */
+  pay_to?: `0x${string}`;
 };

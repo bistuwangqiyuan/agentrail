@@ -11,6 +11,7 @@ export type AgentRailClientOptions = {
 export class AgentRailClient {
   apiKey?: string;
   walletState?: string;
+  address?: string;
 
   constructor(private opts: AgentRailClientOptions) {
     this.apiKey = opts.apiKey;
@@ -29,6 +30,9 @@ export class AgentRailClient {
   private absorb(data: Record<string, unknown>) {
     if (typeof data.wallet_state === "string") this.walletState = data.wallet_state;
     if (typeof data.api_key === "string") this.apiKey = data.api_key;
+    if (typeof data.address === "string") this.address = data.address;
+    const agent = data.agent as { address?: string } | undefined;
+    if (agent?.address) this.address = agent.address;
   }
 
   private async req(method: string, path: string, body?: unknown, extraHeaders?: HeadersInit) {
@@ -58,6 +62,7 @@ export class AgentRailClient {
     });
     if (r.data?.api_key) this.apiKey = r.data.api_key;
     if (r.data?.wallet_state) this.walletState = r.data.wallet_state;
+    if (r.data?.address) this.address = r.data.address;
     return r;
   }
 
@@ -107,6 +112,10 @@ export class AgentRailClient {
     const token = first.data?.resource_token;
     await this.pay(String(resourceId), { resourceToken: token });
     return this.req("GET", urlPath, undefined, { "X-PAYMENT": "auto" });
+  }
+
+  async verifyTx(hash: string) {
+    return this.req("GET", `/api/v1/chain/tx/${hash}`);
   }
 
   async ledger(agentId?: string) {

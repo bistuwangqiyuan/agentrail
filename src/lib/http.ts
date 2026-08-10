@@ -5,7 +5,7 @@ export function json(data: unknown, status = 200) {
     status,
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Api-Key, X-PAYMENT, X-Intent-Id",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Api-Key, X-PAYMENT, X-Intent-Id, X-Wallet-State",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     },
   });
@@ -16,7 +16,7 @@ export function paymentRequired(body: unknown) {
     status: 402,
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Api-Key, X-PAYMENT, X-Intent-Id",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Api-Key, X-PAYMENT, X-Intent-Id, X-Wallet-State",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "X-Payment-Required": "agentrail-x402",
     },
