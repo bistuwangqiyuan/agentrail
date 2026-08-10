@@ -27,16 +27,20 @@ npm run dev
 ## 无人支付验收
 
 ```bash
-# 终端 1
-npm run dev
-
-# 终端 2
 npm run test:e2e
-# 或指向生产：
-node scripts/e2e-smoke.mjs https://paiusdtai.vercel.app
+npm run test:autonomy
+npm run test:rounds   # 10 轮全自动支付/收款
+# 生产：
+node scripts/autonomy-10rounds.mjs https://paiusdtai.vercel.app
 ```
 
-Demo 密钥见 `/docs`。
+Demo 密钥见 `/docs`。Agent 亦可直接：
+
+```bash
+curl -X POST https://paiusdtai.vercel.app/api/v1/agent/cycle \
+  -H "Content-Type: application/json" \
+  -d '{"price_usd":0.15,"buyer_usdt":20}'
+```
 
 ## 商业计划与模型
 

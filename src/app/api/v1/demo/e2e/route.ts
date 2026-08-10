@@ -1,4 +1,6 @@
 import { json, options } from "@/lib/http";
+import { sealReceipt, sealWallet } from "@/lib/crypto-state";
+import { persistDurable } from "@/lib/durable";
 import { settlePayment } from "@/lib/settlement";
 import { getStore, getWalletByApiKey, resetStore } from "@/lib/store";
 
@@ -35,16 +37,21 @@ export async function POST(req: Request) {
     return json({ ok: false, step: "settle", error: result }, 402);
   }
 
+  await persistDurable(store);
+  const afterBuyer = store.wallets.get(buyer.id)!;
+
   return json({
     ok: true,
     demo: "Agent A → paid → Agent B resource, autonomous failover if needed",
     human_clicks: 0,
     before,
     after: {
-      buyer: store.wallets.get(buyer.id)?.balances,
+      buyer: afterBuyer.balances,
       seller: store.wallets.get(seller.id)?.balances,
     },
     receipt: result.receipt,
+    receipt_token: sealReceipt(result.receipt),
+    wallet_state: sealWallet(afterBuyer),
     data: result.payload,
     x402_compatible: true,
     failover_swap_used: Boolean(result.receipt.swap),

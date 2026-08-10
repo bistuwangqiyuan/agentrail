@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:e2e": "node scripts/e2e-smoke.mjs"
+    "test:e2e": "node scripts/e2e-smoke.mjs",
+    "test:autonomy": "node scripts/agent-autonomy-loop.mjs",
+    "test:rounds": "node scripts/autonomy-10rounds.mjs"
   },
   "dependencies": {
     "nanoid": "^5.1.5",

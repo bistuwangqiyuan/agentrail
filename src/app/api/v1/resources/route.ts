@@ -1,14 +1,16 @@
 import { json, options } from "@/lib/http";
+import { sealResource, sealWallet } from "@/lib/crypto-state";
+import { persistDurable } from "@/lib/durable";
+import { ensureDurableLoaded, resolveSeller } from "@/lib/agent-context";
 import { getStore, newId } from "@/lib/store";
 import type { Asset, Network } from "@/lib/types";
-import { getApiKey } from "@/lib/http";
-import { getWalletByApiKey } from "@/lib/store";
 
 export function OPTIONS() {
   return options();
 }
 
 export async function GET() {
+  await ensureDurableLoaded();
   const store = getStore();
   return json({
     resources: [...store.resources.values()].map((r) => ({
@@ -20,13 +22,13 @@ export async function GET() {
       network: r.network,
       seller_agent_id: r.seller_agent_id,
       url: `/api/v1/resources/${r.id}`,
+      resource_token: sealResource(r),
     })),
   });
 }
 
 export async function POST(req: Request) {
-  const apiKey = getApiKey(req);
-  const seller = getWalletByApiKey(apiKey);
+  const seller = await resolveSeller(req);
   if (!seller) return json({ error: "UNAUTHORIZED" }, 401);
 
   const body = await req.json().catch(() => ({}));
@@ -43,5 +45,16 @@ export async function POST(req: Request) {
     payload: body.payload ?? { ok: true },
   };
   store.resources.set(id, resource);
-  return json({ resource, url: `/api/v1/resources/${id}` });
+  // Ensure seller wallet present for settlement credit
+  store.wallets.set(seller.id, seller);
+  store.apiKeys.set(seller.api_key, seller.id);
+  await persistDurable(store);
+
+  return json({
+    resource,
+    url: `/api/v1/resources/${id}`,
+    resource_token: sealResource(resource),
+    wallet_state: sealWallet(seller),
+    note: "Buyers may pay with resource_token even across cold starts.",
+  });
 }
