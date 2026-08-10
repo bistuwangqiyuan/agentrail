@@ -1,0 +1,169 @@
+{
+  "tam_sam": {
+    "TAM_notes": {
+      "agent_software_spend_2026_usd": 206500000000.0,
+      "stablecoin_real_payments_2025_mid_usd": 450000000000.0,
+      "agentic_commerce_2030_orchestrated_usd_range": [
+        3000000000000.0,
+        5000000000000.0
+      ],
+      "caveat": "TAM 不可简单相加：Agent 软件支出 ≠ 支付 GMV；Agentic commerce 是编排交易额，支付基础设施只抽取其中结算层。"
+    },
+    "SAM_judgment_usd": 15187500000.0,
+    "SAM_definition": "可被 Agent 全自动结算的稳定币/链上支付池（API、算力、数据、Agent 服务互付），不含需强人工 KYC 的消费电商主路径。"
+  },
+  "unit_econ": {
+    "avg_ticket_usd": 0.5,
+    "nominal_take_usd": 0.0125,
+    "effective_rev_usd": 0.0125,
+    "variable_cogs_usd": 0.0035,
+    "gross_margin_usd": 0.009,
+    "gross_margin_pct": 0.72,
+    "breakeven_ticket_at_take": 0.14
+  },
+  "scenarios": {
+    "bear": [
+      {
+        "year_index": 1,
+        "calendar_year": 2026,
+        "stablecoin_real_pay_b": 675.0,
+        "m2m_addressable_b": 0.45,
+        "platform_gmv_b": 0.00045,
+        "revenue_m": 0.007,
+        "opex_m": 0.183,
+        "contribution_m": -0.176,
+        "take_rate": 0.015,
+        "platform_share": 0.001
+      },
+      {
+        "year_index": 2,
+        "calendar_year": 2027,
+        "stablecoin_real_pay_b": 945.0,
+        "m2m_addressable_b": 1.26,
+        "platform_gmv_b": 0.00378,
+        "revenue_m": 0.057,
+        "opex_m": 0.306,
+        "contribution_m": -0.249,
+        "take_rate": 0.015,
+        "platform_share": 0.003
+      },
+      {
+        "year_index": 3,
+        "calendar_year": 2028,
+        "stablecoin_real_pay_b": 1228.5,
+        "m2m_addressable_b": 2.457,
+        "platform_gmv_b": 0.019656,
+        "revenue_m": 0.295,
+        "opex_m": 0.553,
+        "contribution_m": -0.258,
+        "take_rate": 0.015,
+        "platform_share": 0.008
+      }
+    ],
+    "base": [
+      {
+        "year_index": 1,
+        "calendar_year": 2026,
+        "stablecoin_real_pay_b": 675.0,
+        "m2m_addressable_b": 1.8,
+        "platform_gmv_b": 0.0036,
+        "revenue_m": 0.09,
+        "opex_m": 0.274,
+        "contribution_m": -0.184,
+        "take_rate": 0.025,
+        "platform_share": 0.002
+      },
+      {
+        "year_index": 2,
+        "calendar_year": 2027,
+        "stablecoin_real_pay_b": 945.0,
+        "m2m_addressable_b": 5.04,
+        "platform_gmv_b": 0.0504,
+        "revenue_m": 1.26,
+        "opex_m": 0.899,
+        "contribution_m": 0.361,
+        "take_rate": 0.025,
+        "platform_share": 0.01
+      },
+      {
+        "year_index": 3,
+        "calendar_year": 2028,
+        "stablecoin_real_pay_b": 1228.5,
+        "m2m_addressable_b": 9.828,
+        "platform_gmv_b": 0.29484,
+        "revenue_m": 7.371,
+        "opex_m": 3.481,
+        "contribution_m": 3.89,
+        "take_rate": 0.025,
+        "platform_share": 0.03
+      }
+    ],
+    "bull": [
+      {
+        "year_index": 1,
+        "calendar_year": 2026,
+        "stablecoin_real_pay_b": 675.0,
+        "m2m_addressable_b": 4.5,
+        "platform_gmv_b": 0.0225,
+        "revenue_m": 0.788,
+        "opex_m": 0.572,
+        "contribution_m": 0.216,
+        "take_rate": 0.035,
+        "platform_share": 0.005
+      },
+      {
+        "year_index": 2,
+        "calendar_year": 2027,
+        "stablecoin_real_pay_b": 945.0,
+        "m2m_addressable_b": 12.6,
+        "platform_gmv_b": 0.315,
+        "revenue_m": 11.025,
+        "opex_m": 4.128,
+        "contribution_m": 6.897,
+        "take_rate": 0.035,
+        "platform_share": 0.025
+      },
+      {
+        "year_index": 3,
+        "calendar_year": 2028,
+        "stablecoin_real_pay_b": 1228.5,
+        "m2m_addressable_b": 24.57,
+        "platform_gmv_b": 1.4742,
+        "revenue_m": 51.597,
+        "opex_m": 17.561,
+        "contribution_m": 34.036,
+        "take_rate": 0.035,
+        "platform_share": 0.06
+      }
+    ]
+  },
+  "sensitivity": [
+    {
+      "take_rate": 0.01,
+      "revenue_m": 2.948
+    },
+    {
+      "take_rate": 0.015,
+      "revenue_m": 4.423
+    },
+    {
+      "take_rate": 0.025,
+      "revenue_m": 7.371
+    },
+    {
+      "take_rate": 0.035,
+      "revenue_m": 10.319
+    },
+    {
+      "take_rate": 0.05,
+      "revenue_m": 14.742
+    }
+  ],
+  "sources": {
+    "S1": "BCG/Allium, McKinsey/Artemis, BIS-cited real-economy stablecoin payments 2025",
+    "S2": "Gartner AI agent software spend forecast (May 2026 coverage)",
+    "S3": "McKinsey agentic commerce $3–5T by 2030",
+    "S4": "x402 / Coinbase agentic payments protocol materials",
+    "S5": "Nevermined agent-stablecoin stats compilation (directional)"
+  }
+}

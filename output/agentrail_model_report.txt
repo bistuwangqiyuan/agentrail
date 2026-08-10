@@ -1,0 +1,82 @@
+========================================================================
+AgentRail 财务与市场测算 — 可复现报告
+========================================================================
+
+【外生参数】
+  稳定币真实支付 2025: $350–550B (mid $450B) [S1]
+  Agent 软件支出: {2025: 86.4, 2026: 206.5, 2027: 376.3} [S2]
+  Agentic commerce 2030: $3.0–5.0T [S3]
+
+【TAM/SAM 框架】
+{
+  "TAM_notes": {
+    "agent_software_spend_2026_usd": 206500000000.0,
+    "stablecoin_real_payments_2025_mid_usd": 450000000000.0,
+    "agentic_commerce_2030_orchestrated_usd_range": [
+      3000000000000.0,
+      5000000000000.0
+    ],
+    "caveat": "TAM 不可简单相加：Agent 软件支出 ≠ 支付 GMV；Agentic commerce 是编排交易额，支付基础设施只抽取其中结算层。"
+  },
+  "SAM_judgment_usd": 15187500000.0,
+  "SAM_definition": "可被 Agent 全自动结算的稳定币/链上支付池（API、算力、数据、Agent 服务互付），不含需强人工 KYC 的消费电商主路径。"
+}
+
+【单位经济（微支付示例）】
+{
+  "avg_ticket_usd": 0.5,
+  "nominal_take_usd": 0.0125,
+  "effective_rev_usd": 0.0125,
+  "variable_cogs_usd": 0.0035,
+  "gross_margin_usd": 0.009,
+  "gross_margin_pct": 0.72,
+  "breakeven_ticket_at_take": 0.14
+}
+
+【情景 BEAR】 take=1.5%  Y3_M2M_share=0.2%
+Year  Cal     Stable$B     M2M$B       GMV$B     Rev$M    OpEx$M   Contrib$M
+1     2026       675.0     0.450      0.0004     0.007     0.183      -0.176
+2     2027       945.0     1.260      0.0038     0.057     0.306      -0.249
+3     2028      1228.5     2.457      0.0197     0.295     0.553      -0.258
+
+【情景 BASE】 take=2.5%  Y3_M2M_share=0.8%
+Year  Cal     Stable$B     M2M$B       GMV$B     Rev$M    OpEx$M   Contrib$M
+1     2026       675.0     1.800      0.0036     0.090     0.274      -0.184
+2     2027       945.0     5.040      0.0504     1.260     0.899       0.361
+3     2028      1228.5     9.828      0.2948     7.371     3.481       3.890
+
+【情景 BULL】 take=3.5%  Y3_M2M_share=2.0%
+Year  Cal     Stable$B     M2M$B       GMV$B     Rev$M    OpEx$M   Contrib$M
+1     2026       675.0     4.500      0.0225     0.788     0.572       0.216
+2     2027       945.0    12.600      0.3150    11.025     4.128       6.897
+3     2028      1228.5    24.570      1.4742    51.597    17.561      34.036
+
+【Y3 Base GMV 费率敏感性】
+[
+  {
+    "take_rate": 0.01,
+    "revenue_m": 2.948
+  },
+  {
+    "take_rate": 0.015,
+    "revenue_m": 4.423
+  },
+  {
+    "take_rate": 0.025,
+    "revenue_m": 7.371
+  },
+  {
+    "take_rate": 0.035,
+    "revenue_m": 10.319
+  },
+  {
+    "take_rate": 0.05,
+    "revenue_m": 14.742
+  }
+]
+
+【方法论声明】
+  1. 情景参数中 platform_share / m2m_share 为经营假设，非历史事实。
+  2. contribution ≠ 会计净利润（未含税、股权激励、诉讼准备金）。
+  3. 合规牌照与托管成本可能使 FIXED_OPEX 上修 2–5×；见 BP 合规章。
+  4. 复现: python models/agentrail_financial_model.py

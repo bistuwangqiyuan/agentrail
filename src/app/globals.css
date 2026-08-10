@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg0: #f3f0e8;
+  --bg1: #e7efe9;
+  --ink: #132033;
+  --muted: #5b6b7c;
+  --rail: #1f6feb;
+  --ember: #b45309;
+  --line: rgba(19, 32, 51, 0.12);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #d9ebe3 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #f0e0c8 0%, transparent 50%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
+}
+
+.font-display {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", serif;
+}
+
+.font-mono {
+  font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+}
+
+.grid-noise {
+  background-image:
+    linear-gradient(rgba(19, 32, 51, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(19, 32, 51, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
