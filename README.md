@@ -2,6 +2,19 @@
 
 专为 AI Agent 的全自动支付 OS MVP：x402 兼容、稳定币优先、支付不通时自动 token↔token。
 
+## 线上地址
+
+- **生产站：** https://paiusdtai.vercel.app
+- **GitHub：** https://github.com/bistuwangqiyuan/agentrail
+- **Demo：** https://paiusdtai.vercel.app/demo
+- **Docs：** https://paiusdtai.vercel.app/docs
+
+```bash
+curl -X POST https://paiusdtai.vercel.app/api/v1/demo/e2e \
+  -H "Content-Type: application/json" \
+  -d '{"reset":true}'
+```
+
 ## 本地运行
 
 ```bash
@@ -19,14 +32,8 @@ npm run dev
 
 # 终端 2
 npm run test:e2e
-```
-
-或：
-
-```bash
-curl -X POST http://localhost:3000/api/v1/demo/e2e \
-  -H "Content-Type: application/json" \
-  -d '{"reset":true}'
+# 或指向生产：
+node scripts/e2e-smoke.mjs https://paiusdtai.vercel.app
 ```
 
 Demo 密钥见 `/docs`。
