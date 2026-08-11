@@ -79,7 +79,3 @@ export function buildQuote(input: {
     description: input.description,
   };
 }
-
-export function fakeTxHash(): string {
-  return `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`;
-}

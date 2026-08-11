@@ -10,7 +10,8 @@
     "lint": "next lint",
     "test:e2e": "node scripts/e2e-smoke.mjs",
     "test:autonomy": "node scripts/agent-autonomy-loop.mjs",
-    "test:rounds": "node scripts/autonomy-10rounds.mjs"
+    "test:rounds": "node scripts/autonomy-10rounds.mjs",
+    "test:rounds:chain": "node scripts/autonomy-10rounds-chain.mjs"
   },
   "dependencies": {
     "nanoid": "^5.1.5",
