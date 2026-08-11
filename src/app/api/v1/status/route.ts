@@ -1,6 +1,9 @@
 import { json, options } from "@/lib/http";
 import { getStore, resetStore, fundSeedWallets } from "@/lib/store";
-import { getChainConfig } from "@/lib/chain";
+import { getChainConfig, getUsdcBalance } from "@/lib/chain";
+import { getPublicClient } from "@/lib/chain/client";
+import { privateKeyToAccount } from "viem/accounts";
+import { formatEther } from "viem";
 
 export function OPTIONS() {
   return options();
@@ -9,6 +12,30 @@ export function OPTIONS() {
 export async function GET() {
   const store = getStore();
   const cfg = getChainConfig();
+  let sponsor: {
+    address: string | null;
+    eth: string | null;
+    usdc: number | null;
+    funded: boolean;
+  } = { address: null, eth: null, usdc: null, funded: false };
+
+  if (cfg.sponsorKey) {
+    try {
+      const account = privateKeyToAccount(cfg.sponsorKey);
+      const publicClient = getPublicClient();
+      const ethBal = await publicClient.getBalance({ address: account.address });
+      const usdcBal = await getUsdcBalance(account.address);
+      sponsor = {
+        address: account.address,
+        eth: formatEther(ethBal),
+        usdc: usdcBal,
+        funded: ethBal > 0n && usdcBal > 0,
+      };
+    } catch {
+      sponsor = { address: null, eth: null, usdc: null, funded: false };
+    }
+  }
+
   return json({
     service: "agentrail",
     status: "ok",
@@ -16,6 +43,8 @@ export async function GET() {
     settlement_mode: cfg.mode,
     network: cfg.network,
     usdc: cfg.usdc,
+    rpc: cfg.rpcUrl,
+    sponsor,
     agents: store.wallets.size,
     resources: store.resources.size,
     receipts: store.receipts.size,

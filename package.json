@@ -11,7 +11,10 @@
     "test:e2e": "node scripts/e2e-smoke.mjs",
     "test:autonomy": "node scripts/agent-autonomy-loop.mjs",
     "test:rounds": "node scripts/autonomy-10rounds.mjs",
-    "test:rounds:chain": "node scripts/autonomy-10rounds-chain.mjs"
+    "test:rounds:chain": "node scripts/autonomy-10rounds-chain.mjs",
+    "setup:base-sepolia": "node scripts/setup-base-sepolia-vercel.mjs",
+    "setup:base-sepolia:deploy": "node scripts/setup-base-sepolia-vercel.mjs --deploy",
+    "fund:sponsor": "node scripts/fund-sponsor.mjs"
   },
   "dependencies": {
     "nanoid": "^5.1.5",
